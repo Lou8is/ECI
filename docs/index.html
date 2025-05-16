@@ -4,40 +4,25 @@
   <meta charset="UTF-8">
   <title>Suivi des signatures par pays</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-    }
-    h1, h2 {
-      font-size: 20px;
-      margin-top: 30px;
-    }
-    ul {
-      padding-left: 20px;
-    }
-    .checkbox-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .checkbox-list label {
-      width: 200px;
-    }
-    .highlight {
-      background-color: yellow;
-      font-weight: bold;
-    }
-    img.flag {
-      vertical-align: middle;
-      margin-right: 6px;
-      width: 24px;
-      height: 18px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1, h2 { font-size: 20px; margin-top: 30px; }
+    ul { padding-left: 20px; }
+    .checkbox-list { display: flex; flex-wrap: wrap; gap: 10px; }
+    .checkbox-list label { width: 200px; }
+    .highlight { background-color: yellow; font-weight: bold; }
+    img.flag { vertical-align: middle; margin-right: 6px; width: 24px; height: 18px; }
+    #progressionInfo { margin-top: 10px; font-weight: bold; }
+    select { margin-bottom: 20px; padding: 5px; font-size: 16px; }
   </style>
 </head>
 <body>
-  <h1>Dernières signatures par pays</h1>
+  <h1>Suivi des initiatives citoyennes</h1>
+  
+  <label for="initiativeSelect">Choisir une initiative :</label>
+  <select id="initiativeSelect"></select>
+
   <div id="countryList">Chargement...</div>
+  <p id="progressionInfo"></p>
 
   <h2>Alerte pour les pays suivants :</h2>
   <div class="checkbox-list" id="countryCheckboxes"></div>
@@ -47,39 +32,16 @@
   <audio id="alertSound" src="sound.mp3" preload="auto"></audio>
 
   <script>
-    const url = 'https://eci.ec.europa.eu/043/public/api/signature/lastSignatures';
-
-    const countryMap = {
-      de: "Allemagne",
-      at: "Autriche",
-      be: "Belgique",
-      bg: "Bulgarie",
-      cy: "Chypre",
-      hr: "Croatie",
-      dk: "Danemark",
-      es: "Espagne",
-      ee: "Estonie",
-      fi: "Finlande",
-      fr: "France",
-      gr: "Grèce",
-      hu: "Hongrie",
-      ie: "Irlande",
-      it: "Italie",
-      lv: "Lettonie",
-      lt: "Lituanie",
-      lu: "Luxembourg",
-      mt: "Malte",
-      nl: "Pays-Bas",
-      pl: "Pologne",
-      pt: "Portugal",
-      cz: "République tchèque",
-      ro: "Roumanie",
-      sk: "Slovaquie",
-      si: "Slovénie",
-      se: "Suède"
-    };
+    let baseUrl = 'https://eci.ec.europa.eu/043/public/';
 
     const totalVoteCounts = {};
+    const countryMap = {
+      at: "Autriche", be: "Belgique", bg: "Bulgarie", hr: "Croatie", cy: "Chypre", cz: "République tchèque",
+      dk: "Danemark", ee: "Estonie", fi: "Finlande", fr: "France", de: "Allemagne", gr: "Grèce",
+      hu: "Hongrie", ie: "Irlande", it: "Italie", lv: "Lettonie", lt: "Lituanie", lu: "Luxembourg",
+      mt: "Malte", nl: "Pays-Bas", pl: "Pologne", pt: "Portugal", ro: "Roumanie", sk: "Slovaquie",
+      si: "Slovénie", es: "Espagne", se: "Suède"
+    };
 
     function countryCodeToFlagImg(code) {
       return `<img class="flag" src="https://flagcdn.com/h24/${code.toLowerCase()}.png" alt="${code}">`;
@@ -99,35 +61,29 @@
     }
 
     function getSelectedCountries() {
-      const selected = [];
-      for (const code in countryMap) {
-        const checkbox = document.getElementById(`chk-${code}`);
-        if (checkbox && checkbox.checked) {
-          selected.push(code);
-        }
-      }
-      return selected;
+      return Object.keys(countryMap).filter(code => {
+        const chk = document.getElementById(`chk-${code}`);
+        return chk && chk.checked;
+      });
     }
 
     async function fetchSignatures() {
       try {
+        const url = `${baseUrl}api/signature/lastSignatures`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Échec de la requête');
 
         const data = await response.json();
         const selected = getSelectedCountries();
 
-        // Count appearances per country and update totalVoteCounts
         data.metadatas.forEach(meta => {
           const code = meta.country;
           totalVoteCounts[code] = (totalVoteCounts[code] || 0) + 1;
         });
 
-        // Display total signatures (grand total across all countries)
         const grandTotal = Object.values(totalVoteCounts).reduce((a, b) => a + b, 0);
         document.getElementById('totalCount').textContent = `Total cumulé des signatures : ${grandTotal}`;
 
-        // Update checkbox labels with the updated vote counts
         for (const [code, name] of Object.entries(countryMap)) {
           const labelSpan = document.getElementById(`label-${code}`);
           if (labelSpan) {
@@ -136,7 +92,6 @@
           }
         }
 
-        // Display current signatures with highlight for selected countries
         const countries = data.metadatas.map(meta => {
           const code = meta.country;
           const name = countryMap[code] || code;
@@ -152,27 +107,79 @@
         const listHtml = countries.map(c =>
           `<li class="${c.highlight ? 'highlight' : ''}">${c.display}</li>`
         ).join('');
-
         document.getElementById('countryList').innerHTML = `<ul>${listHtml}</ul>`;
 
-        // Play sound if selected country appears
-        const alertTriggered = countries.some(c => c.highlight);
-        if (alertTriggered) {
+        if (countries.some(c => c.highlight)) {
           const audio = document.getElementById('alertSound');
-          audio.play().catch(e => {
-            console.warn("Lecture audio bloquée :", e);
-          });
+          audio.play().catch(() => {});
         }
 
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
         document.getElementById('countryList').textContent = 'Erreur lors de la récupération des données.';
+      } finally {
+        setTimeout(fetchSignatures, 1000);
       }
     }
 
+    async function fetchProgression() {
+      try {
+        const url = `${baseUrl}api/report/progression`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Échec de la requête progression');
+        const data = await response.json();
+        const count = data.signatureCount || 0;
+        document.getElementById('progressionInfo').innerHTML =
+          `Signatures totales de l'initiative : <strong>${count.toLocaleString()}</strong>`;
+      } catch (err) {
+        console.error("Erreur progression:", err);
+      } finally {
+        setTimeout(fetchProgression, 1000);
+      }
+    }
+
+    async function fetchInitiatives() {
+      try {
+        const response = await fetch('https://register.eci.ec.europa.eu/core/api/register/search/ALL/FR/0/30', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Origin':'pouet.fr'},
+          body: '{"filters":{"STATUS":["ONGOING"]}}'
+        });
+
+        if (!response.ok) throw new Error('Erreur lors de la récupération des initiatives');
+
+        const data = await response.json();
+        const select = document.getElementById('initiativeSelect');
+
+        data.entries.forEach(entry => {
+          const option = document.createElement('option');
+          option.value = entry.supportLink.replace(/\/\?lg=fr$/, '/');
+          option.textContent = entry.title;
+          select.appendChild(option);
+        });
+
+        // Set initial base URL from the first option
+        if (select.options.length > 0) {
+          baseUrl = select.options[0].value;
+        }
+
+        // Update base URL on selection change
+        select.addEventListener('change', () => {
+          baseUrl = select.value;
+        });
+
+        // Start polling
+        fetchSignatures();
+        fetchProgression();
+
+      } catch (err) {
+        console.error('Erreur init initiatives:', err);
+      }
+    }
+
+    // Init
     populateCountryCheckboxes();
-    fetchSignatures();
-    setInterval(fetchSignatures, 1000);
+    fetchInitiatives();
   </script>
 </body>
 </html>
