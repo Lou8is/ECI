@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Suivi des signatures par pays</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1, h2 {
+      font-size: 20px;
+      margin-top: 30px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    .checkbox-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .checkbox-list label {
+      width: 200px;
+    }
+    .highlight {
+      background-color: yellow;
+      font-weight: bold;
+    }
+    img.flag {
+      vertical-align: middle;
+      margin-right: 6px;
+      width: 24px;
+      height: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dernières signatures par pays</h1>
+  <div id="countryList">Chargement...</div>
+
+  <h2>Alerte pour les pays suivants :</h2>
+  <div class="checkbox-list" id="countryCheckboxes"></div>
+
+  <p id="totalCount" style="margin-top: 10px; font-weight: bold;"></p>
+
+  <audio id="alertSound" src="sound.mp3" preload="auto"></audio>
+
+  <script>
+    const url = 'https://eci.ec.europa.eu/043/public/api/signature/lastSignatures';
+
+    const countryMap = {
+      de: "Allemagne",
+      at: "Autriche",
+      be: "Belgique",
+      bg: "Bulgarie",
+      cy: "Chypre",
+      hr: "Croatie",
+      dk: "Danemark",
+      es: "Espagne",
+      ee: "Estonie",
+      fi: "Finlande",
+      fr: "France",
+      gr: "Grèce",
+      hu: "Hongrie",
+      ie: "Irlande",
+      it: "Italie",
+      lv: "Lettonie",
+      lt: "Lituanie",
+      lu: "Luxembourg",
+      mt: "Malte",
+      nl: "Pays-Bas",
+      pl: "Pologne",
+      pt: "Portugal",
+      cz: "République tchèque",
+      ro: "Roumanie",
+      sk: "Slovaquie",
+      si: "Slovénie",
+      se: "Suède"
+    };
+
+    const totalVoteCounts = {};
+
+    function countryCodeToFlagImg(code) {
+      return `<img class="flag" src="https://flagcdn.com/h24/${code.toLowerCase()}.png" alt="${code}">`;
+    }
+
+    function populateCountryCheckboxes() {
+      const container = document.getElementById('countryCheckboxes');
+      const sortedEntries = Object.entries(countryMap).sort((a, b) => a[1].localeCompare(b[1]));
+      for (const [code, name] of sortedEntries) {
+        const label = document.createElement('label');
+        label.innerHTML = `
+          <input type="checkbox" value="${code}" id="chk-${code}">
+          ${countryCodeToFlagImg(code)} <span id="label-${code}">${name} (0)</span>
+        `;
+        container.appendChild(label);
+      }
+    }
+
+    function getSelectedCountries() {
+      const selected = [];
+      for (const code in countryMap) {
+        const checkbox = document.getElementById(`chk-${code}`);
+        if (checkbox && checkbox.checked) {
+          selected.push(code);
+        }
+      }
+      return selected;
+    }
+
+    async function fetchSignatures() {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Échec de la requête');
+
+        const data = await response.json();
+        const selected = getSelectedCountries();
+
+        // Count appearances per country and update totalVoteCounts
+        data.metadatas.forEach(meta => {
+          const code = meta.country;
+          totalVoteCounts[code] = (totalVoteCounts[code] || 0) + 1;
+        });
+
+        // Display total signatures (grand total across all countries)
+        const grandTotal = Object.values(totalVoteCounts).reduce((a, b) => a + b, 0);
+        document.getElementById('totalCount').textContent = `Total cumulé des signatures : ${grandTotal}`;
+
+        // Update checkbox labels with the updated vote counts
+        for (const [code, name] of Object.entries(countryMap)) {
+          const labelSpan = document.getElementById(`label-${code}`);
+          if (labelSpan) {
+            const count = totalVoteCounts[code] || 0;
+            labelSpan.textContent = `${name} (${count})`;
+          }
+        }
+
+        // Display current signatures with highlight for selected countries
+        const countries = data.metadatas.map(meta => {
+          const code = meta.country;
+          const name = countryMap[code] || code;
+          const flag = countryCodeToFlagImg(code);
+          const isChecked = selected.includes(code);
+          return {
+            code,
+            display: `${flag} ${name}`,
+            highlight: isChecked
+          };
+        });
+
+        const listHtml = countries.map(c =>
+          `<li class="${c.highlight ? 'highlight' : ''}">${c.display}</li>`
+        ).join('');
+
+        document.getElementById('countryList').innerHTML = `<ul>${listHtml}</ul>`;
+
+        // Play sound if selected country appears
+        const alertTriggered = countries.some(c => c.highlight);
+        if (alertTriggered) {
+          const audio = document.getElementById('alertSound');
+          audio.play().catch(e => {
+            console.warn("Lecture audio bloquée :", e);
+          });
+        }
+
+      } catch (error) {
+        console.error(error);
+        document.getElementById('countryList').textContent = 'Erreur lors de la récupération des données.';
+      }
+    }
+
+    populateCountryCheckboxes();
+    fetchSignatures();
+    setInterval(fetchSignatures, 1000);
+  </script>
+</body>
+</html>
