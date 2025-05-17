@@ -8,7 +8,7 @@
     h1, h2 { font-size: 20px; margin-top: 30px; }
     ul { padding-left: 20px; }
     .checkbox-list { display: flex; flex-wrap: wrap; gap: 10px; }
-    .checkbox-list label { width: 200px; }
+    .checkbox-list label { width: 250px; }
     .highlight { background-color: yellow; font-weight: bold; }
     img.flag { vertical-align: middle; margin-right: 6px; width: 24px; height: 18px; }
     #progressionInfo { margin-top: 10px; font-weight: bold; }
@@ -17,7 +17,7 @@
 </head>
 <body>
   <h1>Suivi des initiatives citoyennes</h1>
-  
+
   <label for="initiativeSelect">Choisir une initiative :</label>
   <select id="initiativeSelect"></select>
 
@@ -32,8 +32,7 @@
   <audio id="alertSound" src="sound.mp3" preload="auto"></audio>
 
   <script>
-    let baseUrl = 'https://eci.ec.europa.eu/043/public/';
-
+    let baseUrl = '';
     const totalVoteCounts = {};
     const countryMap = {
       at: "Autriche", be: "Belgique", bg: "Bulgarie", hr: "Croatie", cy: "Chypre", cz: "République tchèque",
@@ -138,48 +137,40 @@
       }
     }
 
-    async function fetchInitiatives() {
+    async function fetchInitiativesFromFile() {
       try {
-        const response = await fetch('https://register.eci.ec.europa.eu/core/api/register/search/ALL/FR/0/30', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Origin':'pouet.fr'},
-          body: '{"filters":{"STATUS":["ONGOING"]}}'
-        });
-
-        if (!response.ok) throw new Error('Erreur lors de la récupération des initiatives');
-
+        const response = await fetch('./data.json');
+        if (!response.ok) throw new Error('Impossible de charger data.json');
         const data = await response.json();
         const select = document.getElementById('initiativeSelect');
 
-        data.entries.forEach(entry => {
+        const ongoingEntries = data.entries.filter(e => e.status === "ONGOING");
+
+        ongoingEntries.forEach(entry => {
           const option = document.createElement('option');
-          option.value = entry.supportLink.replace(/\/\?lg=fr$/, '/');
+          option.value = entry.supportLink;
           option.textContent = entry.title;
           select.appendChild(option);
         });
 
-        // Set initial base URL from the first option
         if (select.options.length > 0) {
           baseUrl = select.options[0].value;
         }
 
-        // Update base URL on selection change
         select.addEventListener('change', () => {
           baseUrl = select.value;
         });
 
-        // Start polling
         fetchSignatures();
         fetchProgression();
-
       } catch (err) {
-        console.error('Erreur init initiatives:', err);
+        console.error('Erreur chargement initiatives:', err);
       }
     }
 
     // Init
     populateCountryCheckboxes();
-    fetchInitiatives();
+    fetchInitiativesFromFile();
   </script>
 </body>
 </html>
