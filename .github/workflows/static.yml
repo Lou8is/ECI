@@ -33,17 +33,17 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # Upload entire repository
-          path: './docs'
       - name: Call API and save response
         run: |
           curl -X POST https://register.eci.ec.europa.eu/core/api/register/search/ALL/FR/0/30 \
             -H "Content-Type: application/json" \
             -d '{"filters":{"STATUS":["ONGOING"]}}' \
-            -o data.json
+            -o docs/data.json
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Upload entire repository
+          path: './docs'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
