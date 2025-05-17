@@ -148,7 +148,7 @@
 
         ongoingEntries.forEach(entry => {
           const option = document.createElement('option');
-          option.value = entry.supportLink;
+          option.value = entry.supportLink.split('?')[0];
           option.textContent = entry.title;
           select.appendChild(option);
         });
